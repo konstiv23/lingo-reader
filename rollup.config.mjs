@@ -1,4 +1,3 @@
-// Re: https://github.com/rollup/plugins/issues/1366
 import { fileURLToPath } from 'node:url'
 
 import { nodeResolve } from '@rollup/plugin-node-resolve'
@@ -6,6 +5,7 @@ import commonjs from '@rollup/plugin-commonjs'
 import dts from 'rollup-plugin-dts'
 import esbuild from 'rollup-plugin-esbuild'
 import rollupReplace from '@rollup/plugin-replace'
+// import terser from '@rollup/plugin-terser'
 
 const __filename = fileURLToPath(import.meta.url)
 globalThis.__filename = __filename
@@ -17,89 +17,98 @@ function replace(opts) {
   })
 }
 
-const external = []
-const globals = {}
-export default [
-  {
-    input: './packages/addtemp/index.ts',
+const external = ['@lingo-reader/shared']
+
+function nodeConfig(input, output) {
+  return {
+    input,
     external,
     output: [
       {
-        file: './packages/addtemp/dist/index.js',
+        file: output.cjs,
         format: 'cjs',
       },
       {
-        file: './packages/addtemp/dist/index.mjs',
+        file: output.esm,
         format: 'esm',
       },
     ],
+    treeshake: {
+      moduleSideEffects: false,
+    },
     plugins: [
-      replace({}),
+      replace({
+        __BROWSER__: JSON.stringify(false),
+      }),
       esbuild(),
       nodeResolve(),
       commonjs(),
+      // terser({
+      //   format: {
+      //     comments: false,
+      //   }
+      // }),
     ],
-  },
-  {
-    input: 'packages/addtemp/index.ts',
+  }
+}
+
+function browserConfig(input, output) {
+  return {
+    input,
     external,
     output: [
       {
-        file: './packages/addtemp/dist/index.browser.mjs',
+        file: output.mjs,
         format: 'esm',
-
+      },
+      {
+        file: output.cjs,
+        format: 'cjs',
       },
     ],
+    treeshake: {
+      moduleSideEffects: false,
+    },
     plugins: [
-      replace({}),
+      replace({
+        '__BROWSER__': JSON.stringify(true),
+        'process.cwd': '(()=>"/")',
+      }),
       esbuild(),
       nodeResolve(),
       commonjs(),
+      // terser({
+      //   format: {
+      //     comments: false,
+      //   }
+      // }),
     ],
-  },
-  // {
-  //   input: 'src/index.ts',
-  //   external,
-  //   output: [
-  //     {
-  //       file: 'dist/index.iife.js',
-  //       format: 'iife',
-  //       extend: true,
-  //       name: 'shiki',
-  //       globals,
-  //     },
-  //     {
-  //       file: 'dist/index.iife.min.js',
-  //       format: 'iife',
-  //       extend: true,
-  //       name: 'shiki',
-  //       plugins: [terser()],
-  //       globals,
-  //     },
-  //     {
-  //       file: 'dist/index.browser.mjs',
-  //       format: 'esm',
-  //       globals,
-  //     },
-  //   ],
-  //   plugins: [
-  //     replace({
-  //       __BROWSER__: JSON.stringify(true),
-  //     }),
-  //     esbuild(),
-  //     nodeResolve(),
-  //     commonjs(),
-  //   ],
-  // },
-  {
-    input: './packages/addtemp/index.ts',
+  }
+}
+
+function dtsConfig(input, output) {
+  return {
+    input,
+    external,
     output: [
       {
-        file: './packages/addtemp/dist/index.d.ts',
+        file: output,
         format: 'es',
-        globals,
       },
     ],
     plugins: [dts()],
-  },
+  }
+}
+
+export default [
+  // reader.ts
+  nodeConfig('./src/index.ts', {
+    cjs: './dist/index.node.js',
+    esm: './dist/index.node.mjs',
+  }),
+  browserConfig('./src/index.ts', {
+    cjs: './dist/index.browser.js',
+    mjs: './dist/index.browser.mjs',
+  }),
+  dtsConfig('./src/index.ts', './dist/index.d.ts'),
 ]

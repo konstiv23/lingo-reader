@@ -1,214 +1,220 @@
+<h1 align="center">
+  <a href="https://github.com/hhk-png/lingo-reader">Home Page</a>&nbsp;&nbsp;&nbsp;
+</h1>
+
+fb2 格式的解析参考了 [MobileRead Wiki - FB2](https://wiki.mobileread.com/wiki/FB2) 与 [Eng:FictionBook description — FictionBook](http://www.fictionbook.org/index.php/Eng:FictionBook_description) 。
+
 # 简介
 
-**lingo-reader** 是一个用于解析电子书文件的库。目前支持解析 **.epub**、**.mobi** 、 **.azw3**（**.kf8**）和 **.fb2** 格式的文件，并提供了一套统一的 API。
-
-此外，你还可以访问 https://hhk-png.github.io/lingo-reader/ 来直接阅读电子书。这个网站是基于该解析库开发的。
-
-各个解析库的详细解释可以查看对应子项目下的 `README.md` 文件：[epub-parser README.md](./packages/epub-parser/README-zh.md)，[mobi-parser README.md](./packages/mobi-parser/README-zh.md)，[kf8-parser README.md](./packages/mobi-parser/README-zh.md)，[fb2-parser README.md](./packages/fb2-parser/README-zh.md)。
+`@lingo-reader/fb2-parser` 用于在浏览器和 node 环境下解析 `.fb2` 电子书文件。
 
 # Install
 
 ```shell
-pnpm install @lingo-reader/epub-parser
-pnpm install @lingo-reader/mobi-parser # 包括moi和azw3文件的解析
 pnpm install @lingo-reader/fb2-parser
-pnpm install @lingo-reader/shared # 包含统一API的类型
 ```
 
-# Usage in Browser
+# Fb2File
+
+## Usage in browser
 
 ```typescript
-import type { EpubFile, EpubSpine } from '@lingo-reader/epub-parser'
-import { initEpubFile } from '@lingo-reader/epub-parser'
-import { initKf8File, initMobiFile } from '@lingo-reader/mobi-parser'
-import type { Kf8, Kf8Spine, Mobi, MobiSpine } from '@lingo-reader/mobi-parser'
-import type { FileInfo } from '@lingo-reader/shared'
-import type { Fb2File, Fb2Spine } from '@lingo-reader/fb2-parser'
 import { initFb2File } from '@lingo-reader/fb2-parser'
+import type { Fb2File, Fb2Spine } from '@lingo-reader/fb2-parser'
 
-let book: EpubFile | Mobi | Kf8 | undefined
-let spine: EpubSpine | MobiSpine | Kf8Spine = []
-let fileInfo: FileInfo = {
-  fileName: '',
-}
-
-async function initBook(file: File) {
-  if (file.name.endsWith('epub')) {
-    book = await initEpubFile(file)
-    spine = book.getSpine()
-    fileInfo = book.getFileInfo()
-  }
-  else if (file.name.endsWith('mobi')) {
-    book = await initMobiFile(file)
-    spine = book.getSpine()
-    fileInfo = book.getFileInfo()
-  }
-  else if (file.name.endsWith('kf8') || file.name.endsWith('azw3')) {
-    book = await initKf8File(file)
-    spine = book.getSpine()
-    fileInfo = book.getFileInfo()
-  }
-  else if (file.name.endsWith('fb2')) {
-    book = await initFb2File(file)
-    spine = book.getSpine()
-    chapterNums.value = spine.length
-    fileInfo = book.getFileInfo()
-  }
-}
-await initBook()
-// toc
-console.log(book.getToc())
-
-for (let i = 0; i < spine.length; i++) {
-  const id = spine[i].id
+function initFb2(file: File) {
+  const fb2: Fb2File = await initFb2File(file)
+  // spine
+  const spine: Fb2Spine = fb2.getSpine()
   // loadChapter
-  const chapter = book!.loadChapter(id)
-  console.log(chapter)
+  const firstChapter = fb2.loadChapter(spine[0].id)
 }
 
-// destroy
-book!.destroy()
+// see Fb2File class
+// .....
 ```
 
-# Init File
-
-针对每种电子书文件，各子包都暴露出了一个init方法，epub、mobi、azw3(kf8)、fb2对应的方法分别是`initEpubFile`、`initMobiFile`、`initKf8File`、`initFb2File`，它们返回的对象都implements了下面的EBookParser接口，在一定程度上统一，但又保持了各自文件类型的特点。请选择对应的文档查看更详细的描述。
-
-# Unified API
-
-针对不同电子书文件的，**lingo-reader** 提供了如下的统一的 api：
+## Usage in node
 
 ```typescript
-export interface EBookParser {
-  getSpine: () => Spine
-  loadChapter: (
-    id: string
-  ) => Promise<ProcessedChapter | undefined> | ProcessedChapter | undefined
-  getToc: () => Toc
-  getMetadata: () => Metadata
-  getFileInfo: () => FileInfo
-  getCover?: () => string
-  resolveHref: (href: string) => ResolvedHref | undefined
-  destroy: () => void
-}
+import { initFb2File } from '@lingo-reader/fb2-parser'
+import type { Fb2File, Fb2Spine } from '@lingo-reader/fb2-parser'
+
+const fb2: Fb2File = await initFb2File('./example/many-languages.fb2')
+// spine
+const spine: Fb2Spine = fb2.getSpine()
+// loadChapter
+const firstChapter = fb2.loadChapter(spine[0].id)
+
+// see Fb2File class
+// .....
 ```
 
-使用方式如下，以 `epub-parser` 为例：
+## initFb2File(file: string | File |Uint8Array, resourceSaveDir?: string): Promise\<Fb2File\>
+
+用于初始化 fb2 文件的 API。将文件路径、文件的 File 对象或者 Uint8Array 输入其中后，就可以得到一个 Fb2File 对象，包括读取元信息、Spine 的各种信息的 API。
+
+**参数：**
+
+- `file: string | File | Uint8Array`：文件路径或者文件的 File 对象，`Uint8Array`。
+- `resourceSaveDir?: string`：可选参数，主要应用在 node 环境下，为图片等资源的保存路径。默认为 `./images`
+
+**返回值：**
+
+- `Promise<Fb2File>`：初始化后的 Fb2 对象，为一个 Promise。
+
+**Note:** 对于 `file` 参数，浏览器端其类型应为 `File | Uint8Array`，不能传入`string` 类型。nodejs 端其类型应该为 `string | Uint8Array`，不能传入 `File` 类型。否则会报错。
+
+## Mobi class
 
 ```typescript
-import type { EpubFile } from '@lingo-reader/epub-parser'
-import { initEpubFile } from '@lingo-reader/epub-parser'
-
-let book: EpubFile
-async function initBook(file: File): EpubFile {
-  if (file.name.endsWith('epub')) {
-    book = await initEpubFile(file)
-  }
-  return book
-}
-```
-
-**@lingo-reader/epub-parser** 只暴露出了 initEpubFile 方法和与该方法相关的类型。上述是在浏览器中的使用方法，需要传入一个 File 对象，File 对象通过 type 为 file 的 input 标签获得。**@lingo-reader/epub-parser** 也支持在 node 环境下运行，只是此时要传入的参数是文件的地址。
-
-`initEpubFile` 的返回对象实现了 EBookParser 接口，并且也根据电子书文件的不同会提供额外的特定 api，可以查阅相应解析器的详细文档：[epub-parser](./packages/epub-parser/README-zh.md)，[mobi-parser](./packages/mobi-parser/README-zh.md)，[kf8-parser](./packages/mobi-parser/README-zh.md)。
-
-## getSpine: () => Spine
-
-```typescript
-interface SpineItem {
-  id: string
-}
-type Spine = SpineItem[]
-```
-
-一本书从前到后由多个章节，包括前言、版权信息、第一章、第二章等等，getSpine 的目的是获取这些章节描述对象的数组，如上述代码所示。每个章节对象一定要有的字段是 id，用于后续加载章节的文字和 css 资源。
-
-## loadChapter: (id: string) => Promise<ProcessedChapter | undefined> | ProcessedChapter | undefined
-
-`loadChapter` 的参数是章节的 id，返回值为处理后的章节对象。因电子书文件解析方式的不同，返回的章节对象可能是一个 `Promise`。如下面的 `ProcessedChapter` 接口所示。如果返回值为 `undefined`，说明没有该章节。
-
-```typescript
-interface CssPart {
-  id: string
-  href: string
-}
-
-interface ProcessedChapter {
-  css: CssPart[]
-  html: string
+class Mobi {
+  getFileInfo(): FileInfo
+  getSpine(): Fb2Spine
+  loadChapter(id: string): Fb2ProcessedChapter | undefined
+  getToc(): Fb2Toc
+  getCoverImage(): string
+  getMetadata(): Fb2Metadata
+  resolveHref(fb2Href: string): Fb2ResolvedHref | undefined
+  destroy(): void
 }
 ```
 
-在电子书文件中，一般一个章节是一个 html(or xhtml)文件。因此处理后的章节对象包括两部分，一部分是 body 标签下的 html 正文字符串。另一部分是 css，该 css 从章节文件的 link 标签中解析出来，在此以 blob url 的形式给出，即 `CssPart` 中的 `href` 字段，并附带一个该 url 对应的 `id`。css 的 blob url 可以供 link 标签直接引用，也可以通过 fetch api 来获取 css 文本，然后做进一步的处理，比如在 css 选择器前面添加某个 dom 元素的 id，实现 scoped css。
-
-## getToc: () => Toc | undefined
-
-toc 即 table of contents，目录。
+### getFileInfo(): FileInfo
 
 ```typescript
-export interface TocItem {
-  label: string
-  href: string
-  id?: string
-  children?: TocItem[]
-}
-export type Toc = TocItem[]
-```
-
-`getToc` 返回的目录是一个数组，数组项中的 `label` 代表目录项的名称。`href` 为内部跳转链接，通过`resolveHref` 来获取该链接对应的章节 id，和 dom 元素的选择器，比如 `[id="example"]`。在获取到章节的 html 之后，通过 `querySelector` 就可以获取要跳转到的元素。`id` 为章节的 id，为可选字段，与 `resolveHref` 解析出来的 id 一致。`children` 为子目录项。epub 中的 toc 也是其中的 `navMap`。
-
-## getMetadata: () => Metadata
-
-电子书的元数据包括书名、语言、描述、作者、日期等字段。因为对应字段的值包括字符串、对象、数组等类型，不同电子书之间难以统一，所以在此将其值的类型设置为了 `any`。具体的可以查看各电子书解析器的详细解释。
-
-```typescript
-type Metadata = Record<string, any>
-```
-
-## getFileInfo: () => FileInfo
-
-```typescript
-interface FileInfo {
+interface MobiFileInfo {
+  // fb2文件名，包括文件后缀
   fileName: string
 }
 ```
 
-`FileInfo` 目前有一个公共的文件名 `fileName`，`epub-parser` 中还会有一个 `mimetype` 字段，以后可能会进行扩展。
+获取一些文件信息，目前只有 `fileName` 字段。
 
-## getCover?: () => string
-
-该方法目的是获取书籍封面的图片，返回值是一个图像的 blob url，可以供 img 标签直接引用。是一个可选方法。
-
-## resolveHref: (href: string) => ResolvedHref | undefined
-
-在书籍中会有跳转到其他章节的内部链接，也有指向外部网站的外部链接。`resolveHref` 将内部链接解析成内部章节的 id 和书籍 html 中的选择器。如果传入的是外部链接或者是一个不存在的内部链接，会返回 undefined，外部链接比如https://www.example.com。
+### getSpine(): Fb2Spine
 
 ```typescript
-export interface ResolvedHref {
+interface Fb2SpineItem {
+  // chapter id
   id: string
+}
+type Fb2Spine = Fb2SpineItem[]
+```
+
+spine 中列出了所有需要按顺序显示的章节文件，spine 内每一个对象存储章节的 id，将 id 传入 loadChapter 用于加载对应的章节。
+
+### loadChapter(id: string): Fb2ProcessedChapter| undefined
+
+```typescript
+interface Fb2CssPart {
+  id: string
+  href: string
+}
+interface Fb2ProcessedChapter {
+  html: string
+  css: Fb2CssPart[]
+}
+```
+
+`loadChapter` 的参数是章节的 id，返回值为处理后的章节对象。如果返回值为 `undefined`，说明没有该章节。
+
+fb2 文件的 css 存放在 FictionBook.stylesheet 下，整个书籍文件只有一个 stylesheet。因此如果 fb2 文件中有样式字段，则其会被读取出来保存。使用 loadChapter 加载章节时，会以对象的形式存放到 Fb2ProcessedChapter.css 中，其 id 固定，href 在浏览器环境下为 bloburl，在 node 环境下为真实的文件路径。
+
+原始的章节文件以 xml 形式存放，因此在转换为 html 的过程中涉及到标签与资源路径的转换。章节中的资源只有图片，在最终返回的 html 中，会自动转换图片的资源链接。另一个是用于内部跳转的 a 标签，a 标签的 href 属性会自动转换为特定的 href 链接，使用 fb2.resolveHref 可以解析出该链接所对应的章节 id 和 dom 选择器。
+
+### getToc(): Fb2Toc
+
+```typescript
+interface Fb2TocItem {
+  // toc item label
+  label: string
+  // fb2内部的href
+  href: string
+}
+export type Fb2Toc = Fb2TocItem[]
+```
+
+用于获取书籍的目录。Fb2Toc 中没有 children。
+
+### getCoverImage(): string
+
+获取书籍的封面图片，以 blob url 的形式给出。在 node 环境下为文件路径。返回空字符串时，代表 `CoverImage` 不存在。
+
+### getMetadata(): MobiMetadata
+
+```typescript
+interface Author {
+  // firstName + middleName + lastName
+  name: string
+  firstName: string
+  middleName: string
+  lastName: string
+  // 作者昵称
+  nickname?: string
+  // 作者主页
+  homePage?: string
+  // 作者邮箱
+  email?: string
+}
+
+interface MobiMetadata {
+  // title-info
+  // 书名
+  title?: string
+  // 书籍类型
+  type?: string
+  // 作者信息
+  author?: Author
+  // 书籍所使用的语言
+  language?: string
+  description?: string
+  keywords?: string
+  // date that the book was written
+  date?: string
+  // 如果是翻译的书籍，srcLang指的是未被翻译时的书籍的语言
+  srcLang?: string
+  // 译者
+  translator?: string
+
+  // document-info
+  id?: string
+  // 使用何种程序生成的fb2文件
+  programUsed?: string
+  // 原始文本的来源地址
+  srcUrl?: string
+  // 标记该文本是否来源于 OCR（光学字符识别），或记录 OCR 工具信息
+  srcOcr?: string
+  version?: string
+  // 改动历史
+  history?: string
+
+  // publish-info
+  // 书名
+  bookName?: string
+  // fb2文件的发布者
+  publisher?: string
+  // 发布城市与年份
+  city?: string
+  year?: string
+  isbn?: string
+}
+```
+
+获取元数据。
+
+### resolveHref(href: string): MobiResolvedHref | undefined
+
+```typescript
+interface Fb2ResolvedHref {
+  // 章节的id
+  id: string
+  // 章节html中的dom选择器，可直接被document.querySelector接收
   selector: string
 }
 ```
 
-## destroy: () => void
+用于解析指向其他章节的链接，被处理成上面的形式。
 
-用于清除在文件解析过程中创建的 blob url 等，防止内存泄漏。
+### destroy(): void
 
-# 安全问题
-
-在进行文件解析时，从章节中提取出来的 html 没有经过安全处理，有可能会被 xss 攻击。在解析库中并没有打算对这一点进行处理，而是在 reader-html 上层应用中使用 DOMPurify 弥补了这一缺陷。
-
-# TODO：
-
-1. 处理epub-parser保存文件的问题，
-2. 将svg-renderer分离出来，抽代码
-3. 看epub 3.4规范
-4. 阅读进度
-5. media-overlay语音朗读功能
-6. epub的mimetype需要重新整理
-7. Parsing may replace some characters in the file path by their percent encoded alternative. For example, A/B/C/file name.xhtml becomes A/B/C/file%20name.xhtml.
-8. 非 codec 资源：先压缩（Deflate）再加密，以节省体积。
-   codec 资源（音视频）：不要压缩，只加密，避免性能问题和播放问题。
-9. The package element attributes
-10. 整理epub metadata，rendition:layout，rendition:orientation，rendition:spread，rendition:flow，rendition:align-x-center
-11. 有几个警告打印需要清除，mobi
+清除解析文件过程中所创建的 blob url 和保存的资源，防止内存泄漏。

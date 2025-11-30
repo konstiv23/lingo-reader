@@ -1,3 +1,0 @@
-User-agent: *
-Allow: /
-Sitemap: https://hhk-png.github.io/lingo-reader/sitemap.xml

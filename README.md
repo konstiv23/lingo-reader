@@ -1,224 +1,197 @@
-<div align="center">
-  <a href="./README-zh.md">中文</a>
-</div>
+<h1 align="center"><a href="https://github.com/hhk-png/lingo-reader">Home Page</a></h1>
 
-# Introduction
+The FB2 format parser is based on references from [MobileRead Wiki - FB2](https://wiki.mobileread.com/wiki/FB2) and [Eng:FictionBook description — FictionBook](http://www.fictionbook.org/index.php/Eng:FictionBook_description).
 
-**lingo-reader** is a library for parsing eBook files. It currently supports the parsing of **.epub**, **.mobi**, **.azw3** (**.kf8**) and **.fb2** files, and provides a unified API.
+# Overview
 
-In addition, you can also visit [https://hhk-png.github.io/lingo-reader/](https://hhk-png.github.io/lingo-reader/) to directly read eBooks. This website is developed based on this parsing library.
+`@lingo-reader/fb2-parser` is a parser for `.fb2` eBook files, designed to work in both browser and Node.js environments.
 
-You can find detailed explanations of each parsing library in the corresponding subproject's `README.md` file: [epub-parser README.md](./packages/epub-parser/README.md), [mobi-parser README.md](./packages/mobi-parser/README.md), [kf8-parser README.md](./packages/mobi-parser/README.md) and [fb2-parser README.md](./packages/fb2-parser/README.md).
-
-# Install
+# Installation
 
 ```shell
-pnpm install @lingo-reader/epub-parser
-pnpm install @lingo-reader/mobi-parser # include parsers of mobi and azw3
 pnpm install @lingo-reader/fb2-parser
-pnpm install @lingo-reader/shared # include types of unified API mentioned above
 ```
 
-# Usage in Browser
+# Fb2File
+
+## Usage in the Browser
 
 ```typescript
-import type { EpubFile, EpubSpine } from '@lingo-reader/epub-parser'
-import { initEpubFile } from '@lingo-reader/epub-parser'
-import { initKf8File, initMobiFile } from '@lingo-reader/mobi-parser'
-import type { Kf8, Kf8Spine, Mobi, MobiSpine } from '@lingo-reader/mobi-parser'
-import type { FileInfo } from '@lingo-reader/shared'
-import type { Fb2File, Fb2Spine } from '@lingo-reader/fb2-parser'
 import { initFb2File } from '@lingo-reader/fb2-parser'
+import type { Fb2File, Fb2Spine } from '@lingo-reader/fb2-parser'
 
-let book: EpubFile | Mobi | Kf8 | undefined
-let spine: EpubSpine | MobiSpine | Kf8Spine = []
-let fileInfo: FileInfo = {
-  fileName: '',
+async function initFb2(file: File) {
+  const fb2: Fb2File = await initFb2File(file)
+  // Get the spine (chapter list)
+  const spine: Fb2Spine = fb2.getSpine()
+  // Load the first chapter
+  const firstChapter = fb2.loadChapter(spine[0].id)
 }
 
-async function initBook(file: File) {
-  if (file.name.endsWith('epub')) {
-    book = await initEpubFile(file)
-    spine = book.getSpine()
-    fileInfo = book.getFileInfo()
-  }
-  else if (file.name.endsWith('mobi')) {
-    book = await initMobiFile(file)
-    spine = book.getSpine()
-    fileInfo = book.getFileInfo()
-  }
-  else if (file.name.endsWith('kf8') || file.name.endsWith('azw3')) {
-    book = await initKf8File(file)
-    spine = book.getSpine()
-    fileInfo = book.getFileInfo()
-  }
-  else if (file.name.endsWith('fb2')) {
-    book = await initFb2File(file)
-    spine = book.getSpine()
-    chapterNums.value = spine.length
-    fileInfo = book.getFileInfo()
-  }
-}
-await initBook()
-// toc
-console.log(book.getToc())
-
-for (let i = 0; i < spine.length; i++) {
-  const id = spine[i].id
-  // loadChapter
-  const chapter = book!.loadChapter(id)
-  console.log(chapter)
-}
-
-// destroy
-book!.destroy()
+// See the Fb2File class for more API details
 ```
 
-# Init File
-
-Each eBook format has its own initialization method exposed by the corresponding subpackage:
-
-- `initEpubFile` for EPUB
-- `initMobiFile` for MOBI
-- `initKf8File` for AZW3 (KF8)
-- `initFb2File` for FB2
-
-These methods return objects that implement the shared `EBookParser` interface, providing a unified API surface while preserving the unique characteristics of each file format.
-
-Please refer to the respective documentation pages for more detailed descriptions.
-
-# Unified API
-
-For different eBook file formats, **lingo-reader** provides the following unified API:
+## Usage in Node.js
 
 ```typescript
-export interface EBookParser {
-  getSpine: () => Spine
-  loadChapter: (
-    id: string
-  ) => Promise<ProcessedChapter | undefined> | ProcessedChapter | undefined
-  getToc: () => Toc
-  getMetadata: () => Metadata
-  getFileInfo: () => FileInfo
-  getCover?: () => string
-  resolveHref: (href: string) => ResolvedHref | undefined
-  destroy: () => void
+import { initFb2File } from '@lingo-reader/fb2-parser'
+import type { Fb2File, Fb2Spine } from '@lingo-reader/fb2-parser'
+
+const fb2: Fb2File = await initFb2File('./example/many-languages.fb2')
+// Get the spine (chapter list)
+const spine: Fb2Spine = fb2.getSpine()
+// Load the first chapter
+const firstChapter = fb2.loadChapter(spine[0].id)
+
+// See the Fb2File class for more API details
+```
+
+## initFb2File(file: string | File | Uint8Array, resourceSaveDir?: string): Promise
+
+Initializes and parses an FB2 file. It returns an `Fb2File` object containing metadata, spine info, and other helper APIs.
+
+**Parameters:**
+
+- `file: string | File | Uint8Array` – The FB2 file to load. Can be a file path (Node), `File` object (Browser), or `Uint8Array` (both).
+- `resourceSaveDir?: string` – Optional. Used in Node.js to specify where to save resources like images. Defaults to `./images`.
+
+**Returns:**
+
+- `Promise<Fb2File>` – A promise that resolves to the parsed `Fb2File` instance.
+
+**Note:**
+In the browser, `file` must be of type `File` or `Uint8Array`.
+In Node.js, `file` must be of type `string` or `Uint8Array`. Passing the wrong type will result in an error.
+
+## Mobi Class
+
+```typescript
+class Mobi {
+  getFileInfo(): FileInfo
+  getSpine(): Fb2Spine
+  loadChapter(id: string): Fb2ProcessedChapter | undefined
+  getToc(): Fb2Toc
+  getCoverImage(): string
+  getMetadata(): Fb2Metadata
+  resolveHref(fb2Href: string): Fb2ResolvedHref | undefined
+  destroy(): void
 }
 ```
 
-The usage is as follows, taking the `epub-parser` as an example:
+### getFileInfo(): FileInfo
 
 ```typescript
-import type { EpubFile } from '@lingo-reader/epub-parser'
-import { initEpubFile } from '@lingo-reader/epub-parser'
-
-let book: EpubFile
-async function initBook(file: File): EpubFile {
-  if (file.name.endsWith('epub')) {
-    book = await initEpubFile(file)
-  }
-  return book
-}
-```
-
-**@lingo-reader/epub-parser** exposes the `initEpubFile` method and the types associated with it. The usage described above is for the browser environment, where you need to pass in a `File` object, which can be obtained via an input element with `type="file"`. **@lingo-reader/epub-parser** also supports running in Node.js environment, but in this case, you need to pass the file path instead.
-
-The object returned by `initEpubFile` implements the `EBookParser` interface, and depending on the type of eBook file, it also provides additional specific APIs. You can refer to the relevant parser's documentation for more details：[epub-parser](./packages/epub-parser/README.md)，[mobi-parser](./packages/mobi-parser/README.md)，[kf8-parser](./packages/mobi-parser/README.md)。
-
-## getSpine: () => Spine
-
-```typescript
-interface SpineItem {
-  id: string
-}
-type Spine = SpineItem[]
-```
-
-A book consists of multiple chapters from beginning to the end, including the preface, copyright information, Chapter 1, Chapter 2, and so on. The purpose of `getSpine` is to retrieve an array of these chapter description objects, as shown in the code above. Each chapter object must include an `id` field, which is used for loading the chapter's text and CSS resources later.
-
-## loadChapter: (id: string) => Promise<ProcessedChapter | undefined> | ProcessedChapter | undefined
-
-The parameter of `loadChapter` is the chapter `id`, and the return value is the processed chapter object. Due to the differences in eBook file parsing methods, the returned chapter object may be a `Promise`, as shown in the `ProcessedChapter` interface below. If the return value is `undefined`, it means the chapter does not exist.
-
-```typescript
-interface CssPart {
-  id: string
-  href: string
-}
-
-interface ProcessedChapter {
-  css: CssPart[]
-  html: string
-}
-```
-
-In an eBook file, a chapter is generally an HTML (or XHTML) file. Therefore, the processed chapter object consists of two parts: one is the HTML content string under the `<body>` tag, and the other is the CSS. The CSS is parsed from the `link` tag in the html file and provided as a blob URL, specifically in the `href` field of `CssPart`, along with an `id` corresponding to that URL. The blob URL of the CSS can be directly referenced by the `<link>` tag, or it can be fetched using the `Fetch` API to retrieve the CSS text for further processing, such as adding an ID of a DOM element before the CSS selector to implement scoped CSS.
-
-## getToc: () => Toc
-
-The `toc` refers to the `table of contents`.
-
-```typescript
-export interface TocItem {
-  label: string
-  href: string
-  id?: string
-  children?: TocItem[]
-}
-export type Toc = TocItem[]
-```
-
-The `getToc` method returns the table of contents as an array. In each item of the array, the `label` represents the name of the TOC item. The `href` is an internal link, and the `resolveHref` method is used to retrieve the corresponding chapter ID and the Dom selector, such as `[id="example"]`. After obtaining the chapter's HTML, you can use `querySelector` to find the target element to jump to.
-
-The `id` represents the chapter's ID, which is an optional field that sames to the ID parsed by `resolveHref`. The `children` field represents sub-TOC items. In an EPUB file, the TOC is also the `navMap`.
-
-## getMetadata: () => Metadata
-
-The metadata of an eBook includes fields such as the title, language, description, author, date, etc. Since the values of these fields can vary in type—strings, objects, arrays, etc.—and differ across eBooks, the value type is set to `any`. For specific details, you can refer to the documentation of each eBook parser.
-
-```typescript
-type Metadata = Record<string, any>
-```
-
-## getFileInfo: () => FileInfo
-
-```typescript
-interface FileInfo {
+interface MobiFileInfo {
+  // FB2 file name including extension
   fileName: string
 }
 ```
 
-The `FileInfo` currently includes a common field, `fileName`. In the `epub-parser`, there is also a `mimetype` field, and further filed extensions may be added in the future.
+Returns basic file information. Currently, only the `fileName` is provided.
 
-## getCover?: () => string
-
-This method is designed to retrieve the book's cover image. It returns a blob URL for the image, which can be directly referenced by an `<img src="">` tag. This is an optional method.
-
-## resolveHref: (href: string) => ResolvedHref | undefined
-
-In a book, there are internal links that jump to other chapters as well as external links pointing to websites. The `resolveHref` method resolves internal links to chapter `id` and `selector` in the book's HTML. If an external link or a non-existent internal link is passed, it will return `undefined`. External links are like `https://www.example.com`.
+### getSpine(): Fb2Spine
 
 ```typescript
-export interface ResolvedHref {
+interface Fb2SpineItem {
+  id: string // Chapter ID
+}
+type Fb2Spine = Fb2SpineItem[]
+```
+
+Returns an ordered list of chapters (the "spine"). Each item includes an `id` that can be passed to `loadChapter` to load that chapter.
+
+### loadChapter(id: string): Fb2ProcessedChapter | undefined
+
+```typescript
+interface Fb2CssPart {
   id: string
-  selector: string
+  href: string
+}
+interface Fb2ProcessedChapter {
+  html: string
+  css: Fb2CssPart[]
 }
 ```
 
-## destroy: () => void
+Loads and processes a chapter by its ID. Returns a structured object containing `html` and `css`. Returns `undefined` if the chapter doesn't exist.
 
-This method is used to clear blob URLs and other resources created during the file parsing process to prevent memory leaks.
+The stylesheet is extracted from `FictionBook.stylesheet` and shared across all chapters. When loading a chapter, the styles are stored as an object in `Fb2ProcessedChapter.css`. The `id` is fixed, while the `href` is a Blob URL in browser environments and a real file path in Node environments.
 
-# Security
+The original chapter files are stored in XML format, so converting them to HTML involves transforming both tags and resource paths. The only resources in the chapters are images, and their URLs are automatically converted in the final returned HTML.
 
-During file parsing, the HTML extracted from chapters is not security and could be vulnerable to XSS attacks. The parsing library does not handle this issue directly, but the vulnerability is mitigated in the upper-level `reader-html` application by using [DOMPurify](https://github.com/cure53/DOMPurify).
+Another element that gets transformed is the `<a>` tag used for internal navigation. The `href` attribute of these tags is automatically rewritten to a specific format. You can use `fb2.resolveHref` to parse the rewritten link and extract the corresponding chapter ID and DOM selector.
 
-## TODO：
+### getToc(): Fb2Toc
 
-write blog to explain how to parse epub, mobi or kf8 file
+```typescript
+interface Fb2TocItem {
+  label: string // TOC item label
+  href: string // Internal FB2 href
+}
+export type Fb2Toc = Fb2TocItem[]
+```
 
-There are many example files in [https://toolsfairy.com/ebook-test](https://toolsfairy.com/ebook-test), try to parse them all.
+Returns the table of contents. Each item has a label and internal `href`. Fb2Toc is not nested.
 
-cycle color components
+### getCoverImage(): string
 
-Now the file is loaded into memory all at once and then processed, this will be bad when ebook files are vary large. It could be better to convert the way to ondemand loading.
+Returns the book's cover image. In the browser, it's a blob URL. In Node.js, it's a file path. If the FB2 file doesn't contain a `CoverImage`, an empty string is returned.
+
+### getMetadata(): MobiMetadata
+
+```typescript
+interface Author {
+  name: string // Full name
+  firstName: string
+  middleName: string
+  lastName: string
+  nickname?: string
+  homePage?: string
+  email?: string
+}
+
+interface MobiMetadata {
+  // title-info
+  title?: string
+  type?: string
+  author?: Author
+  language?: string
+  description?: string
+  keywords?: string
+  date?: string
+  srcLang?: string // Source language if translated
+  translator?: string
+
+  // document-info
+  id?: string
+  programUsed?: string // Program used to generate the FB2 file
+  srcUrl?: string // Original source URL of the content
+  srcOcr?: string // OCR tool or indicator that OCR was used
+  version?: string
+  history?: string
+
+  // publish-info
+  bookName?: string
+  publisher?: string
+  city?: string
+  year?: string
+  isbn?: string
+}
+```
+
+Returns the book’s metadata.
+
+### resolveHref(href: string): Fb2ResolvedHref | undefined
+
+```typescript
+interface Fb2ResolvedHref {
+  id: string // Chapter ID
+  selector: string // DOM selector (usable with querySelector)
+}
+```
+
+Resolves internal FB2 `href` values (e.g., from `<a>` tags) into a chapter ID and a DOM selector for the in-document anchor.
+
+### destroy(): void
+
+Cleans up any created blob URLs or saved resources, to avoid memory leaks during parsing and rendering.
