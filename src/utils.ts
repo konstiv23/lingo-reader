@@ -8,6 +8,7 @@ import { HREF_PREFIX, STYLESHEET_ID } from './constant'
 
 export async function extractFileData(file: InputFile) {
   if (file instanceof Uint8Array) {
+    console.log("AAAA");
     return {
       data: file,
       fileName: '',
@@ -19,8 +20,13 @@ export async function extractFileData(file: InputFile) {
       throw new TypeError('The `fb2` param cannot be a `string` in browser env.')
     }
 
+    let text = await file.text();
+    if(text.includes(`encoding="windows-1251"`)) {
+      text = await readCp1251File(file);
+    }
+
     return {
-      data: await file.text(),
+      data: text,
       fileName: file.name,
     }
   }
@@ -173,4 +179,31 @@ export function transformTagName(tag: string) {
     tag: transtormedTag,
     isSelfClosing: selfClosingHtmlTag.has(transtormedTag),
   }
+}
+
+function readCp1251File(file): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = function(event) {
+            // Check if the result is an ArrayBuffer (it should be, given how we read it)
+            if (event.target && event.target.result instanceof ArrayBuffer) {
+                const arrayBuffer = event.target.result;
+                
+                // The 'windows-1251' alias works for CP1251
+                const decoder = new TextDecoder('windows-1251'); 
+                const decodedString = decoder.decode(arrayBuffer);
+                resolve(decodedString);
+            } else {
+                reject(new Error("FileReader did not return an ArrayBuffer."));
+            }
+        };
+
+        reader.onerror = function(event) {
+            reject(event.target.error);
+        };
+
+        // This method ensures the result *will* be an ArrayBuffer
+        reader.readAsArrayBuffer(file);
+    });
 }

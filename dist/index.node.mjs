@@ -10,6 +10,7 @@ const STYLESHEET_ID = `${ID_PREFIX}style`;
 
 async function extractFileData(file) {
   if (file instanceof Uint8Array) {
+    console.log("AAAA");
     return {
       data: file,
       fileName: ""

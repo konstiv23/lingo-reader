@@ -8,6 +8,7 @@ const STYLESHEET_ID = `${ID_PREFIX}style`;
 
 async function extractFileData(file) {
   if (file instanceof Uint8Array) {
+    console.log("AAAA");
     return {
       data: file,
       fileName: ""
@@ -17,8 +18,12 @@ async function extractFileData(file) {
     if (typeof file === "string") {
       throw new TypeError("The `fb2` param cannot be a `string` in browser env.");
     }
+    let text = await file.text();
+    if (text.includes(`encoding="windows-1251"`)) {
+      text = await readCp1251File(file);
+    }
     return {
-      data: await file.text(),
+      data: text,
       fileName: file.name
     };
   }
@@ -98,6 +103,25 @@ function transformTagName(tag) {
     tag: transtormedTag,
     isSelfClosing: selfClosingHtmlTag.has(transtormedTag)
   };
+}
+function readCp1251File(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      if (event.target && event.target.result instanceof ArrayBuffer) {
+        const arrayBuffer = event.target.result;
+        const decoder = new TextDecoder("windows-1251");
+        const decodedString = decoder.decode(arrayBuffer);
+        resolve(decodedString);
+      } else {
+        reject(new Error("FileReader did not return an ArrayBuffer."));
+      }
+    };
+    reader.onerror = function(event) {
+      reject(event.target.error);
+    };
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 function parseBinary(binaryAST) {
