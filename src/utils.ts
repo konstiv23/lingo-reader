@@ -8,7 +8,6 @@ import { HREF_PREFIX, STYLESHEET_ID } from './constant'
 
 export async function extractFileData(file: InputFile) {
   if (file instanceof Uint8Array) {
-    console.log("AAAA");
     return {
       data: file,
       fileName: '',
